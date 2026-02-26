@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>KDK Double</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+        body { 
+            font-family: 'Noto Sans KR', sans-serif; 
+            background-color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+            min-height: 100vh;
+        }
+        .card { background: white; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        input[type="number"] { -moz-appearance: textfield; }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .page-bottom-padding { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
+        #matchesContainer { padding-bottom: 60px; }
+
+        .match-card {
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .btn-active:active { transform: scale(0.95); transition: transform 0.1s; }
+        
+        /* 삭제 버튼 스타일 */
+        .delete-badge-btn {
+            transition: all 0.2s;
+        }
+        .delete-badge-btn:hover {
+            color: #ef4444;
+            background-color: #fee2e2;
+        }
+    </style>
+</head>
+<body class="page-bottom-padding">
+    <div class="max-w-6xl mx-auto px-4 py-6 md:px-8 md:py-10">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-2">
+                <span class="text-emerald-500">🎾</span> KDK 매니저
+            </h1>
+            <p class="text-slate-500 mt-2 text-sm">모바일 최적화 복식 대진 시스템</p>
+            
+            <div id="downloadBtnContainer" class="mt-4 hidden px-2">
+                <button onclick="downloadCSV()" class="w-full md:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition font-bold shadow-lg shadow-emerald-100 btn-active">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    결과 다운로드 (CSV)
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div class="lg:col-span-4 space-y-6 lg:sticky lg:top-6">
+                <!-- 참가자 등록 -->
+                <section class="card p-5 border-t-4 border-blue-600">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold flex items-center gap-2 text-slate-800">참가자 등록</h2>
+                        <button onclick="loadExamplePlayers()" class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 active:bg-blue-100 transition">
+                            예시 명단 추가
+                        </button>
+                    </div>
+                    <div class="space-y-3">
+                        <textarea id="playerNamesInput" rows="2" placeholder="이름을 쉼표나 줄바꿈으로 구분" class="w-full border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-slate-50 focus:bg-white"></textarea>
+                        <button onclick="addPlayers()" class="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl btn-active shadow-md shadow-blue-100">명단 적용</button>
+                    </div>
+                    
+                    <div class="mt-5">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-xs font-bold text-slate-400 uppercase">참가자 (<span id="playerCount">0</span>명)</span>
+                            <button onclick="clearPlayers()" class="text-xs text-rose-500 font-bold">비우기</button>
+                        </div>
+                        <div id="playerBadgeContainer" class="flex flex-wrap gap-2 min-h-[50px] p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200"></div>
+                    </div>
+
+                    <div class="mt-6 pt-6 border-t border-slate-100">
+                        <button onclick="generateKDKMatches()" id="generateBtn" disabled class="w-full bg-slate-800 text-white font-bold py-4 rounded-xl disabled:opacity-20 shadow-xl btn-active">
+                            대진표 생성하기
+                        </button>
+                        <p id="constraintMsg" class="text-[11px] text-center mt-3 text-amber-600 font-bold">4~9명 사이로 입력해주세요.</p>
+                    </div>
+                </section>
+
+                <!-- 실시간 순위 -->
+                <section class="card p-5 border-t-4 border-indigo-500 overflow-hidden">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold text-slate-800">실시간 순위</h2>
+                        <span class="text-[10px] text-slate-400">승 > 득실 > 승자승</span>
+                    </div>
+                    <div class="overflow-x-auto no-scrollbar -mx-5 md:mx-0">
+                        <table class="w-full text-sm">
+                            <thead class="bg-slate-50 text-slate-400">
+                                <tr class="border-b border-slate-100">
+                                    <th class="py-3 px-4 text-left font-bold text-[10px]">순위</th>
+                                    <th class="py-3 px-2 text-left font-bold text-[10px]">이름</th>
+                                    <th class="py-3 px-2 text-center font-bold text-[10px]">승/패</th>
+                                    <th class="py-3 px-2 text-center font-bold text-[10px]">득실</th>
+                                    <th class="py-3 px-4 text-center font-bold text-[10px]">비고</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rankingBody" class="divide-y divide-slate-50">
+                                <tr><td colspan="5" class="py-10 text-center text-slate-400 text-xs italic font-medium">대진표 생성 후 표시됩니다.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <div class="lg:col-span-8">
+                <!-- 경기 대진표 -->
+                <section class="card border-t-4 border-emerald-500 flex flex-col max-h-[calc(100vh-8rem)]">
+                    <div class="p-5 md:p-8 border-b border-slate-50">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h2 class="text-xl font-bold text-slate-800">🎾 경기 대진표</h2>
+                                <p class="text-xs text-slate-400 mt-1">총 <span id="matchTotalCount" class="font-bold text-emerald-600">0</span>경기 편성됨</p>
+                            </div>
+                            <!-- 일괄 적용 기능 -->
+                            <div id="bulkUpdateContainer" class="hidden flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200 w-full md:w-auto mt-2 md:mt-0">
+                                <span class="text-[11px] font-bold text-slate-500 ml-1">점수 일괄 변경:</span>
+                                <input type="number" id="bulkScoreInput" value="11" class="w-12 h-8 text-center text-sm font-bold rounded-lg border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                                <button onclick="applyBulkScore()" class="bg-emerald-500 text-white text-[11px] font-bold px-3 py-2 rounded-lg hover:bg-emerald-600 transition btn-active">적용</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="matchesContainer" class="p-5 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-y-auto custom-scrollbar">
+                        <div class="col-span-full flex flex-col items-center justify-center py-20 text-slate-300">
+                            <p class="text-sm font-bold opacity-40 text-center">참가자를 등록하고<br>대진표를 생성해 주세요.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur text-white px-6 py-3 rounded-full text-sm font-bold opacity-0 transition-opacity pointer-events-none z-50"></div>
+
+    <script>
+        let players = [];
+        let matches = [];
+        let sortedRanking = [];
+        const DEFAULT_SCORE = 11;
+
+        const KDK_TABLES = {
+            4: [[1, 2, 3, 4], [1, 3, 2, 4], [1, 4, 2, 3]],
+            5: [[1, 2, 3, 4], [1, 3, 2, 5], [1, 4, 3, 5], [1, 5, 2, 4], [2, 3, 4, 5]],
+            6: [[1, 2, 3, 4], [1, 5, 4, 6], [2, 3, 5, 6], [1, 4, 2, 5], [2, 4, 3, 6], [1, 6, 3, 5]],
+            7: [[1, 2, 3, 4], [5, 6, 1, 7], [3, 5, 2, 4], [1, 4, 6, 7], [2, 3, 5, 7], [1, 6, 2, 5], [4, 6, 3, 7]],
+            8: [[1, 2, 3, 4], [5, 6, 7, 8], [1, 3, 5, 7], [2, 4, 6, 8], [1, 5, 2, 6], [3, 7, 4, 8], [1, 6, 3, 8], [2, 5, 4, 7]],
+            9: [[1, 2, 3, 4], [5, 6, 7, 8], [1, 9, 5, 7], [2, 3, 6, 8], [4, 9, 3, 8], [1, 5, 2, 6], [3, 6, 4, 5], [1, 7, 8, 9], [2, 4, 7, 9]]
+        };
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.replace('opacity-0', 'opacity-100');
+            setTimeout(() => toast.classList.replace('opacity-100', 'opacity-0'), 2000);
+        }
+
+        function loadExamplePlayers() {
+            const exampleNames = "김철수, 이영희, 박지성, 손흥민, 김연아, 정해인";
+            document.getElementById('playerNamesInput').value = exampleNames;
+            addPlayers();
+        }
+
+        function addPlayers() {
+            const input = document.getElementById('playerNamesInput');
+            const rawNames = input.value.split(/[,|\n]/).map(n => n.trim()).filter(n => n !== "");
+            if (rawNames.length === 0) return;
+            rawNames.forEach(name => {
+                if (!players.find(p => p.name === name)) {
+                    players.push({ id: 'p_' + Math.random().toString(36).substr(2, 9), name: name, wins: 0, losses: 0, scoreDiff: 0 });
+                }
+            });
+            input.value = '';
+            updatePlayerUI();
+        }
+
+        function removePlayer(playerId) {
+            const playerIndex = players.findIndex(p => p.id === playerId);
+            if (playerIndex > -1) {
+                const name = players[playerIndex].name;
+                players.splice(playerIndex, 1);
+                updatePlayerUI();
+                showToast(`'${name}' 님이 삭제되었습니다.`);
+                
+                // 대진표가 생성된 상태에서 선수를 삭제하면 대진표 초기화 (선수 구성이 바뀌므로)
+                if (matches.length > 0) {
+                    matches = [];
+                    renderMatches();
+                    updateRanking();
+                    document.getElementById('downloadBtnContainer').classList.add('hidden');
+                    document.getElementById('bulkUpdateContainer').classList.add('hidden');
+                }
+            }
+        }
+
+        function clearPlayers() {
+            players = [];
+            matches = [];
+            updatePlayerUI();
+            renderMatches();
+            updateRanking();
+            document.getElementById('downloadBtnContainer').classList.add('hidden');
+            document.getElementById('bulkUpdateContainer').classList.add('hidden');
+            showToast("참가자 명단이 비워졌습니다.");
+        }
+
+        function updatePlayerUI() {
+            const container = document.getElementById('playerBadgeContainer');
+            document.getElementById('playerCount').innerText = players.length;
+            container.innerHTML = players.map((p, idx) => `
+                <span class="inline-flex items-center bg-white border border-slate-200 pl-3 pr-1 py-1 rounded-xl text-sm font-bold text-slate-700">
+                    <span class="text-blue-500 mr-1.5 text-xs">${idx + 1}</span> 
+                    <span class="mr-2">${p.name}</span>
+                    <button onclick="removePlayer('${p.id}')" class="delete-badge-btn w-6 h-6 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </span>
+            `).join('');
+            const isValid = players.length >= 4 && players.length <= 9;
+            document.getElementById('generateBtn').disabled = !isValid;
+            document.getElementById('constraintMsg').style.display = isValid ? 'none' : 'block';
+        }
+
+        function generateKDKMatches() {
+            const n = players.length;
+            if (!KDK_TABLES[n]) return;
+            matches = KDK_TABLES[n].map((m, idx) => ({
+                id: idx, round: idx + 1,
+                team1: [players[m[0]-1], players[m[1]-1]],
+                team2: [players[m[2]-1], players[m[3]-1]],
+                team1Nums: [m[0], m[1]], team2Nums: [m[2], m[3]],
+                score1: DEFAULT_SCORE, score2: DEFAULT_SCORE
+            }));
+            document.getElementById('matchTotalCount').innerText = matches.length;
+            document.getElementById('downloadBtnContainer').classList.remove('hidden');
+            document.getElementById('bulkUpdateContainer').classList.remove('hidden');
+            renderMatches();
+            updateRanking();
+            showToast("대진표가 생성되었습니다.");
+        }
+
+        function applyBulkScore() {
+            if (matches.length === 0) return;
+            const bulkValue = parseInt(document.getElementById('bulkScoreInput').value);
+            if (isNaN(bulkValue)) return;
+            
+            matches.forEach(m => {
+                m.score1 = bulkValue;
+                m.score2 = bulkValue;
+            });
+            
+            renderMatches();
+            updateRanking();
+            showToast(`모든 경기의 점수를 ${bulkValue}점으로 변경했습니다.`);
+        }
+
+        function adjustScore(matchId, teamNum, delta) {
+            const match = matches.find(m => m.id === matchId);
+            if (!match) return;
+            if (teamNum === 1) match.score1 = Math.max(0, (parseInt(match.score1) || 0) + delta);
+            else match.score2 = Math.max(0, (parseInt(match.score2) || 0) + delta);
+            renderMatches();
+            updateRanking();
+        }
+
+        function updateScore(matchId, teamNum, value) {
+            const match = matches.find(m => m.id === matchId);
+            if (!match) return;
+            const val = parseInt(value) || 0;
+            if (teamNum === 1) match.score1 = val;
+            else match.score2 = val;
+            updateRanking();
+        }
+
+        function renderMatches() {
+            const container = document.getElementById('matchesContainer');
+            if (matches.length === 0) {
+                container.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center py-20 text-slate-300"><p class="text-sm font-bold opacity-40 text-center">참가자를 등록하고<br>대진표를 생성해 주세요.</p></div>`;
+                document.getElementById('matchTotalCount').innerText = "0";
+                return;
+            }
+
+            container.innerHTML = matches.map(m => `
+                <div class="match-card card p-5">
+                    <div class="mb-4">
+                        <span class="text-[10px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded">${m.round}회차</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex-1 text-right">
+                            <div class="text-sm font-bold text-slate-800 truncate"><span class="text-[10px] text-blue-500 mr-1 opacity-60">${m.team1Nums[0]}.</span>${m.team1[0].name}</div>
+                            <div class="text-sm font-bold text-slate-800 truncate"><span class="text-[10px] text-blue-500 mr-1 opacity-60">${m.team1Nums[1]}.</span>${m.team1[1].name}</div>
+                        </div>
+                        <div class="flex flex-col items-center gap-1">
+                            <button onclick="adjustScore(${m.id}, 1, 1)" class="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-500 active:bg-blue-50 transition">＋</button>
+                            <input type="number" inputmode="numeric" value="${m.score1}" onchange="updateScore(${m.id}, 1, this.value)" 
+                                class="w-10 h-10 text-center text-lg font-black bg-white border-2 border-slate-100 rounded-lg outline-none focus:border-blue-400">
+                            <button onclick="adjustScore(${m.id}, 1, -1)" class="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 active:bg-rose-50 transition">－</button>
+                        </div>
+                        <div class="text-xs font-black italic text-slate-300 mx-1">VS</div>
+                        <div class="flex flex-col items-center gap-1">
+                            <button onclick="adjustScore(${m.id}, 2, 1)" class="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-500 active:bg-blue-50 transition">＋</button>
+                            <input type="number" inputmode="numeric" value="${m.score2}" onchange="updateScore(${m.id}, 2, this.value)" 
+                                class="w-10 h-10 text-center text-lg font-black bg-white border-2 border-slate-100 rounded-lg outline-none focus:border-blue-400">
+                            <button onclick="adjustScore(${m.id}, 2, -1)" class="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 active:bg-rose-50 transition">－</button>
+                        </div>
+                        <div class="flex-1 text-left">
+                            <div class="text-sm font-bold text-slate-800 truncate"><span class="text-[10px] text-blue-500 mr-1 opacity-60">${m.team2Nums[0]}.</span>${m.team2[0].name}</div>
+                            <div class="text-sm font-bold text-slate-800 truncate"><span class="text-[10px] text-blue-500 mr-1 opacity-60">${m.team2Nums[1]}.</span>${m.team2[1].name}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getWinnerBetween(p1Id, p2Id) {
+            let p1Wins = 0;
+            let p2Wins = 0;
+            matches.forEach(m => {
+                const s1 = parseInt(m.score1) || 0;
+                const s2 = parseInt(m.score2) || 0;
+                if (s1 === s2) return;
+                const team1Ids = m.team1.map(p => p.id);
+                const team2Ids = m.team2.map(p => p.id);
+                if (team1Ids.includes(p1Id) && team2Ids.includes(p2Id)) {
+                    if (s1 > s2) p1Wins++; else p2Wins++;
+                } else if (team1Ids.includes(p2Id) && team2Ids.includes(p1Id)) {
+                    if (s2 > s1) p1Wins++; else p2Wins++;
+                }
+            });
+            if (p1Wins > p2Wins) return 1;
+            if (p2Wins > p1Wins) return -1;
+            return 0;
+        }
+
+        function updateRanking() {
+            if (players.length === 0) {
+                document.getElementById('rankingBody').innerHTML = '<tr><td colspan="5" class="py-10 text-center text-slate-400 text-xs italic font-medium">대진표 생성 후 표시됩니다.</td></tr>';
+                return;
+            }
+            players.forEach(p => { p.wins = 0; p.losses = 0; p.scoreDiff = 0; });
+            matches.forEach(m => {
+                const s1 = parseInt(m.score1) || 0;
+                const s2 = parseInt(m.score2) || 0;
+                if (s1 === s2) return;
+                
+                const diff = s1 - s2;
+                m.team1.forEach(pObj => {
+                    const p = players.find(player => player.id === pObj.id);
+                    if (p) { if (s1 > s2) p.wins++; else if (s1 < s2) p.losses++; p.scoreDiff += diff; }
+                });
+                m.team2.forEach(pObj => {
+                    const p = players.find(player => player.id === pObj.id);
+                    if (p) { if (s2 > s1) p.wins++; else if (s2 < s1) p.losses++; p.scoreDiff -= diff; }
+                });
+            });
+
+            sortedRanking = [...players].sort((a, b) => {
+                if (b.wins !== a.wins) return b.wins - a.wins;
+                if (b.scoreDiff !== a.scoreDiff) return b.scoreDiff - a.scoreDiff;
+                return getWinnerBetween(b.id, a.id);
+            });
+
+            let currentRank = 1;
+            document.getElementById('rankingBody').innerHTML = sortedRanking.map((p, i) => {
+                let isJoint = false;
+                if (i > 0) {
+                    const prev = sortedRanking[i-1];
+                    const tieWithPrev = prev.wins === p.wins && 
+                                      prev.scoreDiff === p.scoreDiff && 
+                                      getWinnerBetween(prev.id, p.id) === 0;
+                    
+                    if (!tieWithPrev) currentRank = i + 1;
+                    else isJoint = true;
+                }
+                
+                let nextTie = false;
+                if (i < sortedRanking.length - 1) {
+                    const next = sortedRanking[i+1];
+                    nextTie = p.wins === next.wins && 
+                              p.scoreDiff === next.scoreDiff && 
+                              getWinnerBetween(p.id, next.id) === 0;
+                }
+
+                const displayRank = (isJoint || nextTie) ? `${currentRank}=` : currentRank;
+                const rankBg = currentRank === 1 ? 'bg-yellow-400' : (currentRank === 2 ? 'bg-slate-300' : (currentRank === 3 ? 'bg-orange-400' : 'bg-slate-200'));
+                
+                let note = "";
+                if (i > 0) {
+                    const prev = sortedRanking[i-1];
+                    if (prev.wins === p.wins && prev.scoreDiff === p.scoreDiff) {
+                        const h2h = getWinnerBetween(prev.id, p.id);
+                        if (h2h !== 0) note = `<span class="text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded">승자승</span>`;
+                    }
+                }
+                if (i < sortedRanking.length - 1) {
+                    const next = sortedRanking[i+1];
+                    if (p.wins === next.wins && p.scoreDiff === next.scoreDiff) {
+                        const h2h = getWinnerBetween(p.id, next.id);
+                        if (h2h !== 0) note = `<span class="text-[9px] bg-indigo-50 text-indigo-400 px-1.5 py-0.5 rounded font-bold">승자승 ↑</span>`;
+                    }
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="py-4 px-4">
+                            <span class="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-lg text-[10px] font-black text-white ${rankBg} shadow-sm">
+                                ${displayRank}
+                            </span>
+                        </td>
+                        <td class="py-4 px-2 font-black text-slate-700 text-sm">${p.name}</td>
+                        <td class="py-4 px-2 text-center whitespace-nowrap"><span class="text-blue-600 font-bold">${p.wins}승</span> <span class="text-slate-400 text-xs">${p.losses}패</span></td>
+                        <td class="py-4 px-2 text-center font-black text-sm ${p.scoreDiff > 0 ? 'text-emerald-500' : (p.scoreDiff < 0 ? 'text-rose-500' : 'text-slate-400')}">
+                            ${p.scoreDiff > 0 ? '+' : ''}${p.scoreDiff}
+                        </td>
+                        <td class="py-4 px-4 text-center">${note}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function downloadCSV() {
+            let csv = "\uFEFF[최종 순위표]\n순위,이름,승,패,득실차\n";
+            let currentRank = 1;
+            sortedRanking.forEach((p, i) => { 
+                if (i > 0) {
+                    const prev = sortedRanking[i-1];
+                    const tie = prev.wins === p.wins && prev.scoreDiff === p.scoreDiff && getWinnerBetween(prev.id, p.id) === 0;
+                    if (!tie) currentRank = i + 1;
+                }
+                csv += `${currentRank},${p.name},${p.wins},${p.losses},${p.scoreDiff}\n`; 
+            });
+            csv += "\n[상세 경기 결과]\n회차,팀1 선수1,팀1 선수2,팀1 점수,팀2 점수,팀2 선수1,팀2 선수2\n";
+            matches.forEach(m => { csv += `${m.round},${m.team1[0].name},${m.team1[1].name},${m.score1},${m.score2},${m.team2[0].name},${m.team2[1].name}\n`; });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `KDK_RESULT_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.csv`;
+            link.click();
+        }
+    </script>
+</body>
+</html>
